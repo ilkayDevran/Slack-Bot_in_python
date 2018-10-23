@@ -3,8 +3,10 @@
 from flask import Flask, request, make_response, Response
 from slackeventsapi import SlackEventAdapter
 from slackclient import SlackClient
+import matplotlib.pyplot as plt
+import requests
 import json
-
+import time
 import attachments
 
 
@@ -17,14 +19,13 @@ text = ""
 
 with open("keys.txt", "r") as f:
     content = f.readlines()
-# you may also want to remove whitespace characters like `\n` at the end of each line
 content = [x.strip() for x in content]
 f.close() 
 
 SLACK_SIGNING_SECRET = content[0].split(" ")[1] 
 SLACK_BOT_TOKEN = content[1].split(" ")[1]  
-SLACK_VERIFICATION_TOKEN = content[2].split(" ")[1] 
-
+SLACK_VERIFICATION_TOKEN = content[2].split(" ")[1]
+FIXER_API_KEY =  content[3].split(" ")[1]
 
 # This `app` represents your existing Flask app
 # Flask webserver for incoming traffic from Slack
@@ -52,6 +53,23 @@ def verify_slack_token(request_token):
 def hello():
     return "Hello there!"
 
+
+@staticmethod
+def do(token, request="?", post_data=None, domain="slack.com"):
+    if post_data is None:
+        post_data = {}
+
+    if "files" in post_data:
+        temp = {element:post_data[element] for element in post_data if not "files" in element}
+        return requests.post(
+        'https://{0}/api/{1}'.format(domain, request),
+        data=dict(temp, token=token), files=post_data["files"]
+        )
+    else:
+        return requests.post(
+            'https://{0}/api/{1}'.format(domain, request),
+            data=dict(post_data, token=token),
+        )
 
 
 """ ### Slack Event API Funtions ### """
@@ -136,7 +154,7 @@ def decideWhat2Do(message):
     # START ORDER
     elif message.get("subtype") is None and "menu" in message.get('text'):
         channel = message["channel"]
-        message = "Hello <@%s>! :tada:" % message["user"]
+        message = "HelloOOOOOOO <@%s>! :tada:" % message["user"]
         slack_client.api_call("chat.postMessage", channel=channel, text=message, attachments=attachments.menu_list[0])
     
     elif message.get("subtype") is None and "games" in message.get('text'):
@@ -147,51 +165,77 @@ def decideWhat2Do(message):
     elif message.get("subtype") is None and "req" in message.get('text'):
         channel = message["channel"]
         slack_client.api_call("chat.postMessage", channel=channel, text=message)
+    
+    elif message.get("subtype") is None and "currency" in message.get('text'):
+        channel = message["channel"]
+        message = "Hello <@%s>! :tada:" % message["user"]
+        slack_client.api_call("chat.postMessage", channel=channel, text=message, attachments=attachments.currency_menu_list)
+        
+    
+    elif message.get("subtype") is None and "sapsik" in message.get('text'):
+        channel = message["channel"]
+        USER_ID = message["user"]
+        message = "Hello <@%s>! :tada:" % message["user"]
+        slack_client.api_call(
+                            'files.upload', 
+                            channels=channel, 
+                            filename='pic.jpg', 
+                            file=open('/Users/ilkay/Desktop/git/mySlackAppBot/assets/cute-robot.jpg', 'rb'),
+                            )
+
+
+# ******** HELPER FUNCTIONS ******** #
 
 def select_message_action(form_json):
     global orders, text
 
-    # Check to see what the user's selection was and update the message accordingly
-    selection = form_json["actions"][0]["selected_options"][0]["value"]
+    if form_json["actions"][0]["name"] == "currency_list":
+        print form_json["actions"][0]["name"]
+        currency_api_get_request(form_json)
 
-    # Edit message text according to user selection
-    message_text = get_message_according_to_selection(selection)
-    
-    if len(orders) is not 0:
-        text += "\n" + str(message_text) + " has been chosen :white_check_mark:" 
-    else:
-        text = str(message_text) + " has been chosen :white_check_mark:" 
-    
-    orders.append(selection)
-    
-    try:
-        # send message
-        response = slack_client.api_call(
-        "chat.update",
-        channel=form_json["channel"]["id"],
-        ts=form_json["message_ts"],
-        text=text,
-        color="#3AA3E3",
-        attachments=attachments.menu_list[len(orders)] # empty `attachments` to clear the existing massage attachments
-        )
-        #print (response)
-    except:
-        attch = attachments.confirm_buttons
-        attch[0]['fields'][0]['value'] = text.split('\n')[0]
-        attch[0]['fields'][1]['value'] = text.split('\n')[1]
-        attch[0]['fields'][2]['value'] = text.split('\n')[2]
-        attch[0]['title'] = "Selected parameters in below. Do you want to run the query?"
+    elif form_json["actions"][0]["name"] == "menu_list:list1" or form_json["actions"][0]["name"] == "menu_list:list2" or form_json["actions"][0]["name"] == "menu_list:list3":
+        # Check to see what the user's selection was and update the message accordingly
+        selection = form_json["actions"][0]["selected_options"][0]["value"]
 
-        # send message
-        response = slack_client.api_call(
-        "chat.update",
-        channel=form_json["channel"]["id"],
-        ts=form_json["message_ts"],
-        text="",
-        attachments=attch
-        )
-        #orders = []
-        text = ""
+        # Edit message text according to user selection
+        message_text = get_message_according_to_selection(selection)
+        
+        if len(orders) is not 0:
+            text += "\n" + str(message_text) + " has been chosen :white_check_mark:" 
+        else:
+            text = str(message_text) + " has been chosen :white_check_mark:" 
+        
+        orders.append(selection)
+        
+        try:
+            # send message
+            response = slack_client.api_call(
+            "chat.update",
+            channel=form_json["channel"]["id"],
+            ts=form_json["message_ts"],
+            text=text,
+            color="#3AA3E3",
+            attachments=attachments.menu_list[len(orders)] # empty `attachments` to clear the existing massage attachments
+            )
+            #print (response)
+        except:
+            attch = attachments.confirm_buttons
+            attch[0]['fields'][0]['value'] = text.split('\n')[0]
+            attch[0]['fields'][1]['value'] = text.split('\n')[1]
+            attch[0]['fields'][2]['value'] = text.split('\n')[2]
+            attch[0]['title'] = "Selected parameters in below. Do you want to run the query?"
+
+            # send message
+            response = slack_client.api_call(
+            "chat.update",
+            channel=form_json["channel"]["id"],
+            ts=form_json["message_ts"],
+            text="",
+            attachments=attch
+            )
+            #orders = []
+            text = ""
+
 
 def button_message_action(form_json):
     global orders
@@ -205,6 +249,51 @@ def button_message_action(form_json):
         attachments=[] # empty `attachments` to clear the existing massage attachments
     )
     orders = []
+
+
+# ------- SUB-HELPER FUNCTIONS ------- #
+
+def currency_api_get_request(form_json):
+    global orders, text
+   
+    # check user currency selection
+    selection = form_json["actions"][0]["selected_options"][0]["value"]
+    saving_path = "./assets/new_image.jpg"
+    
+    # send request to api with user selection as parameter
+    re = requests.get('http://data.fixer.io/api/latest?access_key=' + FIXER_API_KEY + '&base%20=%20'+ selection)
+    # responsed json object
+    json_obj = json.loads(re.text)
+    base = json_obj['base']
+    x = []
+    y= []
+    counter = 0
+    for key in json_obj['rates'].keys():
+        if counter == 5:
+            break
+        x.append(key)
+        y.append(json_obj['rates'][key])
+        counter +=1
+
+    print 'CHART IS PREPARING....'
+    plt.title('Currency Chart')
+    plt.plot(x, y)
+    plt.ylabel(base)
+    print 'SAVING...'
+    plt.savefig(saving_path)
+    #plt.show()
+    
+    print 'SLEEP..'
+    time.sleep(1)
+    print 'Upload file'
+    # UPLOAD IMAGE AFTER DATA IS PREPARED
+    slack_client.api_call(
+                        'files.upload',
+                        channel=form_json["channel"]["id"], 
+                        filename='pic.jpg', 
+                        file=open(saving_path, 'rb')
+                        )
+    
 
 
 # Start the server on port 3000
