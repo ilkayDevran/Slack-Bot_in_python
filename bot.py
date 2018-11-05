@@ -32,6 +32,7 @@ class Bot():
             self.slack_client.api_call("chat.postMessage", channel=channel, text=text, attachments=start_service_button)
         
         elif message.get("subtype") is None and "sapsik" in message.get('text'):
+            print self.services
             self.slack_client.api_call(
                                 'files.upload', 
                                 channels=channel, 
@@ -50,31 +51,57 @@ class Bot():
         #print json.dumps(jsn, indent=4)
         userId = jsn["user"]['id']
 
-        if jsn["actions"][0]["name"] == "m:1" or jsn["actions"][0]["name"] == "m:2" or jsn["actions"][0]["name"] == "m:3":
-            selected_value = jsn["actions"][0]["selected_options"][0]["value"]
+        if (jsn["actions"][0]["name"] == "parameter:Company" or 
+            jsn["actions"][0]["name"] == "parameter:Platform" or 
+            jsn["actions"][0]["name"] == "parameter:Period" or 
+            jsn["actions"][0]["name"] == "parameter:Category" or
+            jsn["actions"][0]["name"] == "parameter:NewsCategory"):
 
+            selected_value = jsn["actions"][0]["selected_options"][0]["value"]
             self.services[userId].append(selected_value)
 
-            try:
-                self.slack_client.api_call(
-                    "chat.update",
-                    channel = jsn["channel"]["id"],
-                    ts = jsn["message_ts"],
-                    color = "#3AA3E3",
-                    attachments = menu_list[len(self.services[userId])] 
-                )
-            except:
-                #text = '-'.join(self.services[userId])
-                # send message
-                self.slack_client.api_call(
-                    "chat.update",
-                    channel = jsn["channel"]["id"],
-                    ts = jsn["message_ts"],
-                    text = "",
-                    attachments = confirm_buttons
-                )
-                #del self.services[userId]
-                #print 'DICT:',self.services
+            if len(self.services[userId]) == len(chart_parameters_list):
+                try:
+                    self.slack_client.api_call(
+                        "chat.update",
+                        channel = jsn["channel"]["id"],
+                        ts = jsn["message_ts"],
+                        color = "#3AA3E3",
+                        attachments = newsCategories[self.services[userId][0]] 
+                    )
+                except:
+                    #text = '-'.join(self.services[userId])
+                    # send message
+                    self.slack_client.api_call(
+                        "chat.update",
+                        channel = jsn["channel"]["id"],
+                        ts = jsn["message_ts"],
+                        text = "",
+                        attachments = confirm_buttons
+                    )
+                    #del self.services[userId]
+                    #print 'DICT:',self.services
+            else:
+                try:
+                    self.slack_client.api_call(
+                        "chat.update",
+                        channel = jsn["channel"]["id"],
+                        ts = jsn["message_ts"],
+                        color = "#3AA3E3",
+                        attachments = chart_parameters_list[len(self.services[userId])] 
+                    )
+                except:
+                    #text = '-'.join(self.services[userId])
+                    # send message
+                    self.slack_client.api_call(
+                        "chat.update",
+                        channel = jsn["channel"]["id"],
+                        ts = jsn["message_ts"],
+                        text = "",
+                        attachments = confirm_buttons
+                    )
+                    #del self.services[userId]
+                    #print 'DICT:',self.services
     
     def button_message_action(self, jsn):
         #print json.dumps(jsn, indent=4)
@@ -124,7 +151,7 @@ class Bot():
                                     channel=jsn['channel']['id'],
                                     ts=jsn["message_ts"],
                                     text=text,
-                                    attachments=menu_list[len(self.services[userId])]
+                                    attachments=chart_parameters_list[len(self.services[userId])]
                                     )
         print json.dumps(self.services, indent=4)
 
