@@ -3,6 +3,7 @@
 from slackclient import SlackClient
 from attches import *
 import json
+import os
 
 class Bot():
     def __init__(self, SLACK_BOT_TOKEN):
@@ -114,6 +115,7 @@ class Bot():
     def button_message_action(self, jsn):
         #print json.dumps(jsn, indent=4)
         userId = jsn["user"]['id']
+        channel = jsn["channel"]["id"]
 
         if jsn['callback_id'] == "service:start":
             self.startService(jsn)
@@ -121,6 +123,8 @@ class Bot():
         elif jsn['callback_id'] == "confirm_buttons":
             if jsn['actions'][0]['value'] == "yes":
                 # SEND REQUEST HERE
+                self.send_request(userId, channel)
+                
                 text = '-'.join(self.services[userId])
                 self.slack_client.api_call(
                     "chat.update",
@@ -163,5 +167,20 @@ class Bot():
                                     attachments=chart_parameters_list[len(self.services[userId])]
                                     )
         print json.dumps(self.services, indent=4)
+
+    def send_request(self, userId, channel):
+        cmd = "python helper_scripts/draw_chart.py -cmp " + self.services[userId][0] + " -plt " + self.services[userId][1] + " -prd " + self.services[userId][2] + " -ctg " + self.services[userId][3] 
+        if len(self.services[userId]) == 5:
+            cmd += " -nctg " + self.services[userId][4]
+        
+        if os.system(cmd) == 0:
+            print "SAVED BEEEE! :D hadi yolla artık"
+            print self.services
+            self.slack_client.api_call(
+                                'files.upload', 
+                                channels=channel, 
+                                filename='pic.jpg', 
+                                file=open('./assets/new_image.jpg', 'rb'),
+                                )
 
 
