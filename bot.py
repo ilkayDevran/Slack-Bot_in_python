@@ -60,12 +60,19 @@ class Bot():
             selected_value = jsn["actions"][0]["selected_options"][0]["value"]
             self.services[userId].append(selected_value)
 
+            # Edit message text according to user selection
+            if len(self.services[userId]) == 1:
+                text = ":white_check_mark: " + str(selected_value)
+            else:
+                text = ":white_check_mark: " + '\n:white_check_mark: '.join(self.services[userId])
+                
             if len(self.services[userId]) == len(chart_parameters_list):
                 try:
                     self.slack_client.api_call(
                         "chat.update",
                         channel = jsn["channel"]["id"],
                         ts = jsn["message_ts"],
+                        text = text,
                         color = "#3AA3E3",
                         attachments = newsCategories[self.services[userId][0]] 
                     )
@@ -76,7 +83,7 @@ class Bot():
                         "chat.update",
                         channel = jsn["channel"]["id"],
                         ts = jsn["message_ts"],
-                        text = "",
+                        text = text,
                         attachments = confirm_buttons
                     )
                     #del self.services[userId]
@@ -87,6 +94,7 @@ class Bot():
                         "chat.update",
                         channel = jsn["channel"]["id"],
                         ts = jsn["message_ts"],
+                        text = text,
                         color = "#3AA3E3",
                         attachments = chart_parameters_list[len(self.services[userId])] 
                     )
@@ -97,7 +105,7 @@ class Bot():
                         "chat.update",
                         channel = jsn["channel"]["id"],
                         ts = jsn["message_ts"],
-                        text = "",
+                        text = text,
                         attachments = confirm_buttons
                     )
                     #del self.services[userId]
@@ -111,8 +119,8 @@ class Bot():
             self.startService(jsn)
 
         elif jsn['callback_id'] == "confirm_buttons":
-            # BURAYA KONTROL EKLE USER IDDEN. JSONDADA USER A READY KEY I TANIMLA
             if jsn['actions'][0]['value'] == "yes":
+                # SEND REQUEST HERE
                 text = '-'.join(self.services[userId])
                 self.slack_client.api_call(
                     "chat.update",
@@ -123,6 +131,7 @@ class Bot():
                     attachments=[]
                 )
             else:
+                # CANCEL SERVICE
                 self.slack_client.api_call(
                     "chat.update",
                     channel = jsn["channel"]["id"],
